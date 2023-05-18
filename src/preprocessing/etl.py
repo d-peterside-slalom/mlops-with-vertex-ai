@@ -22,7 +22,7 @@ from apache_beam.io.gcp.datastore.v1new.datastoreio import WriteToDatastore
 import tensorflow_transform.beam as tft_beam
 from tensorflow_transform.tf_metadata import dataset_metadata
 from tensorflow_transform.tf_metadata import schema_utils
-
+from pathlib import Path
 
 from src.preprocessing import transformations
 
@@ -55,11 +55,11 @@ def run_transform_pipeline(args):
 
     raw_data_query = args["raw_data_query"]
     write_raw_data = args["write_raw_data"]
-    exported_data_prefix = args["exported_data_prefix"]
-    transformed_data_prefix = args["transformed_data_prefix"]
-    transform_artifact_dir = args["transform_artifact_dir"]
-    temporary_dir = args["temporary_dir"]
-    gcs_location = args["gcs_location"]
+    exported_data_prefix = Path(args["exported_data_prefix"])
+    transformed_data_prefix = Path(args["transformed_data_prefix"])
+    transform_artifact_dir = Path(args["transform_artifact_dir"])
+    temporary_dir = Path(args["temporary_dir"])
+    gcs_location = str(args["gcs_location"])
     project = args["project"]
 
     source_raw_schema = tfdv.load_schema_text(RAW_SCHEMA_LOCATION)

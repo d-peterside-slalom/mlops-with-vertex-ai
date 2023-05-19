@@ -164,7 +164,6 @@ def split_dataset(bq_row, num_partitions, ratio):
 
 def run_transform_pipeline(args):
     pipeline_options = beam.pipeline.PipelineOptions(flags=[], **args)
-
     raw_data_query = args["raw_data_query"]
     write_raw_data = args["write_raw_data"]
     exported_data_prefix = Path(args["exported_data_prefix"])

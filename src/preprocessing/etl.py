@@ -23,10 +23,13 @@ import tensorflow_transform.beam as tft_beam
 from tensorflow_transform.tf_metadata import dataset_metadata
 from tensorflow_transform.tf_metadata import schema_utils
 from pathlib import Path
-
 from src.preprocessing import transformations
 
-RAW_SCHEMA_LOCATION = "src/raw_schema/schema.pbtxt"
+import tensorflow_transform.beam.tft_beam_io as tft_beam_io
+from tfx_bsl.public.tfxio import TensorFlowDatasetOptions
+import tensorflow_transform.beam as tft_beam
+
+RAW_SCHEMA_LOCATION = f"src/raw_schema/schema.pbtxt"
 
 
 def parse_bq_record(bq_record):
@@ -49,8 +52,117 @@ def split_dataset(bq_row, num_partitions, ratio):
     return len(ratio) - 1
 
 
-def run_transform_pipeline(args):
+# def run_transform_pipeline(args):
 
+#     pipeline_options = beam.pipeline.PipelineOptions(flags=[], **args)
+
+#     raw_data_query = args["raw_data_query"]
+#     write_raw_data = args["write_raw_data"]
+#     exported_data_prefix = Path(args["exported_data_prefix"])
+#     transformed_data_prefix = Path(args["transformed_data_prefix"])
+#     transform_artifact_dir = Path(args["transform_artifact_dir"])
+#     temporary_dir = Path(args["temporary_dir"])
+#     gcs_location = str(args["gcs_location"])
+#     project = args["project"]
+
+#     source_raw_schema = tfdv.load_schema_text(RAW_SCHEMA_LOCATION)
+#     raw_feature_spec = schema_utils.schema_as_feature_spec(
+#         source_raw_schema
+#     ).feature_spec
+
+#     raw_metadata = dataset_metadata.DatasetMetadata(
+#         schema_utils.schema_from_feature_spec(raw_feature_spec)
+#     )
+
+#     with beam.Pipeline(options=pipeline_options) as pipeline:
+#         with tft_beam.Context(temporary_dir):
+
+#             # Read raw BigQuery data.
+#             raw_train_data, raw_eval_data = (
+#                 pipeline
+#                 | "Read Raw Data"
+#                 >> beam.io.ReadFromBigQuery(
+#                     query=raw_data_query,
+#                     project=project,
+#                     use_standard_sql=True,
+#                     gcs_location=gcs_location,
+#                 )
+#                 | "Parse Data" >> beam.Map(parse_bq_record)
+#                 | "Split" >> beam.Partition(split_dataset, 2, ratio=[8, 2])
+#             )
+
+#             # Create a train_dataset from the data and schema.
+#             raw_train_dataset = (raw_train_data, raw_metadata)
+
+#             # Analyze and transform raw_train_dataset to produced transformed_train_dataset and transform_fn.
+#             transformed_train_dataset, transform_fn = (
+#                 raw_train_dataset
+#                 | "Analyze & Transform"
+#                 >> tft_beam.AnalyzeAndTransformDataset(transformations.preprocessing_fn)
+#             )
+
+#             # Get data and schema separately from the transformed_dataset.
+#             transformed_train_data, transformed_metadata = transformed_train_dataset
+
+#             # write transformed train data.
+#             _ = (
+#                 transformed_train_data
+#                 | "Write Transformed Train Data"
+#                 >> beam.io.tfrecordio.WriteToTFRecord(
+#                     file_path_prefix=os.path.join(
+#                         transformed_data_prefix, "train/data"
+#                     ),
+#                     file_name_suffix=".gz",
+#                     coder=tft.coders.ExampleProtoCoder(transformed_metadata.schema),
+#                 )
+#             )
+
+#             # Create a eval_dataset from the data and schema.
+#             raw_eval_dataset = (raw_eval_data, raw_metadata)
+
+#             # Transform raw_eval_dataset to produced transformed_eval_dataset using transform_fn.
+#             transformed_eval_dataset = (
+#                 raw_eval_dataset,
+#                 transform_fn,
+#             ) | "Transform" >> tft_beam.TransformDataset()
+
+#             # Get data from the transformed_eval_dataset.
+#             transformed_eval_data, _ = transformed_eval_dataset
+
+#             # write transformed train data.
+#             _ = (
+#                 transformed_eval_data
+#                 | "Write Transformed Eval Data"
+#                 >> beam.io.tfrecordio.WriteToTFRecord(
+#                     file_path_prefix=os.path.join(transformed_data_prefix, "eval/data"),
+#                     file_name_suffix=".gz",
+#                     coder=tft.coders.ExampleProtoCoder(transformed_metadata.schema),
+#                 )
+#             )
+
+#             # Write transform_fn.
+#             _ = transform_fn | "Write Transform Artifacts" >> tft_beam.WriteTransformFn(
+#                 transform_artifact_dir
+#             )
+
+#             if write_raw_data:
+#                 # write raw eval data.
+#                 _ = (
+#                     raw_eval_data
+#                     | "Write Raw Eval Data"
+#                     >> beam.io.tfrecordio.WriteToTFRecord(
+#                         file_path_prefix=os.path.join(exported_data_prefix, "data"),
+#                         file_name_suffix=".tfrecord",
+#                         coder=tft.coders.ExampleProtoCoder(raw_metadata.schema),
+#                     )
+#                 )
+
+
+
+
+
+
+def run_transform_pipeline(args):
     pipeline_options = beam.pipeline.PipelineOptions(flags=[], **args)
 
     raw_data_query = args["raw_data_query"]
@@ -63,16 +175,23 @@ def run_transform_pipeline(args):
     project = args["project"]
 
     source_raw_schema = tfdv.load_schema_text(RAW_SCHEMA_LOCATION)
-    raw_feature_spec = schema_utils.schema_as_feature_spec(
-        source_raw_schema
-    ).feature_spec
+    raw_feature_spec = schema_utils.schema_as_feature_spec(source_raw_schema).feature_spec
 
-    raw_metadata = dataset_metadata.DatasetMetadata(
-        schema_utils.schema_from_feature_spec(raw_feature_spec)
-    )
+    raw_metadata = dataset_metadata.DatasetMetadata(schema_utils.schema_from_feature_spec(raw_feature_spec))
 
     with beam.Pipeline(options=pipeline_options) as pipeline:
         with tft_beam.Context(temporary_dir):
+#             def parse_bq_record(record):
+#                 # Perform your parsing logic here
+#                 return record
+
+#             def split_dataset(element, num_partitions, ratio):
+#                 # Perform your splitting logic here
+#                 return element
+
+#             def preprocessing_fn(inputs):
+#                 # Perform your feature transformation logic here
+#                 return transformed_features
 
             # Read raw BigQuery data.
             raw_train_data, raw_eval_data = (
@@ -91,7 +210,7 @@ def run_transform_pipeline(args):
             # Create a train_dataset from the data and schema.
             raw_train_dataset = (raw_train_data, raw_metadata)
 
-            # Analyze and transform raw_train_dataset to produced transformed_train_dataset and transform_fn.
+            # Analyze and transform raw_train_dataset to produce transformed_train_dataset and transform_fn.
             transformed_train_dataset, transform_fn = (
                 raw_train_dataset
                 | "Analyze & Transform"
@@ -105,32 +224,30 @@ def run_transform_pipeline(args):
             _ = (
                 transformed_train_data
                 | "Write Transformed Train Data"
-                >> beam.io.tfrecordio.WriteToTFRecord(
-                    file_path_prefix=os.path.join(
-                        transformed_data_prefix, "train/data"
-                    ),
+                >> beam.io.WriteToTFRecord(
+                    file_path_prefix=os.path.join(transformed_data_prefix, "train/data"),
                     file_name_suffix=".gz",
                     coder=tft.coders.ExampleProtoCoder(transformed_metadata.schema),
                 )
             )
 
-            # Create a eval_dataset from the data and schema.
+            # Create an eval_dataset from the data and schema.
             raw_eval_dataset = (raw_eval_data, raw_metadata)
 
-            # Transform raw_eval_dataset to produced transformed_eval_dataset using transform_fn.
+            # Transform raw_eval_dataset to produce transformed_eval_dataset using transform_fn.
             transformed_eval_dataset = (
                 raw_eval_dataset,
                 transform_fn,
             ) | "Transform" >> tft_beam.TransformDataset()
 
-            # Get data from the transformed_eval_dataset.
+            # Get data from the transformed_eval_dataset
             transformed_eval_data, _ = transformed_eval_dataset
 
-            # write transformed train data.
+            # write transformed eval data.
             _ = (
                 transformed_eval_data
                 | "Write Transformed Eval Data"
-                >> beam.io.tfrecordio.WriteToTFRecord(
+                >> beam.io.WriteToTFRecord(
                     file_path_prefix=os.path.join(transformed_data_prefix, "eval/data"),
                     file_name_suffix=".gz",
                     coder=tft.coders.ExampleProtoCoder(transformed_metadata.schema),
@@ -138,16 +255,14 @@ def run_transform_pipeline(args):
             )
 
             # Write transform_fn.
-            _ = transform_fn | "Write Transform Artifacts" >> tft_beam.WriteTransformFn(
-                transform_artifact_dir
-            )
+            _ = transform_fn | "Write Transform Artifacts" >> tft_beam.WriteTransformFn(transform_artifact_dir)
 
             if write_raw_data:
                 # write raw eval data.
                 _ = (
                     raw_eval_data
                     | "Write Raw Eval Data"
-                    >> beam.io.tfrecordio.WriteToTFRecord(
+                    >> beam.io.WriteToTFRecord(
                         file_path_prefix=os.path.join(exported_data_prefix, "data"),
                         file_name_suffix=".tfrecord",
                         coder=tft.coders.ExampleProtoCoder(raw_metadata.schema),
@@ -155,6 +270,11 @@ def run_transform_pipeline(args):
                 )
 
 
+
+
+
+                
+                
 def convert_to_jsonl(bq_record):
     import json
 

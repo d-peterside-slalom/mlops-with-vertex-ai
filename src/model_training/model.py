@@ -31,18 +31,6 @@ from src.common import features
 #             pass
 #     return inputs
 
-def create_model_inputs():
-    inputs = {}
-    for feature_name in features.FEATURE_NAMES:
-        name = features.transformed_name(feature_name)
-        if feature_name in features.NUMERICAL_FEATURE_NAMES:
-            inputs[name] = keras.layers.Input(name=name, shape=(1,), dtype=tf.float32)
-        elif feature_name in features.categorical_feature_names():
-            inputs[name] = keras.layers.Input(name=name, shape=(1,), dtype=tf.int64)
-        else:
-            pass
-    return inputs
-
 
 
 # def _create_binary_classifier(feature_vocab_sizes, hyperparams):
@@ -70,12 +58,12 @@ def create_model_inputs():
 #             )(input_layers[key])
 #             layers.append(onehot_layer)
 #         elif feature_name in features.NUMERICAL_FEATURE_NAMES:
-#             numeric_layer = tf.expand_dims(input_layers[key], -1)
+#             numeric_layer = tf.expand_dims(input_layers[key],-1)
 #             layers.append(numeric_layer)
 #         else:
 #             pass
 
-#     joined = keras.layers.Concatenate(name="combines_inputs")(layers)
+#     joined = keras.layers.Concatenate(name="combines_inputs")(tf.nest.flatten(layers))
 #     feedforward_output = keras.Sequential(
 #         [
 #             keras.layers.Dense(units, activation="relu")
@@ -84,14 +72,24 @@ def create_model_inputs():
 #         name="feedforward_network",
 #     )(joined)
 #     logits = keras.layers.Dense(units=1, name="logits")(feedforward_output)
-# 
+
 #     model = keras.Model(inputs=input_layers, outputs=[logits])
 #     return model
-# 
+def create_model_inputs():
+    inputs = {}
+    for feature_name in features.FEATURE_NAMES:
+        name = features.transformed_name(feature_name)
+        if feature_name in features.NUMERICAL_FEATURE_NAMES:
+            inputs[name] = keras.layers.Input(name=name, shape=(1,), dtype=tf.float32, ragged=True)
+        elif feature_name in features.categorical_feature_names():
+            inputs[name] = keras.layers.Input(name=name, shape=(1,), dtype=tf.int64, ragged=True)
+        else:
+            pass
+    return inputs
+
 
 def _create_binary_classifier(feature_vocab_sizes, hyperparams):
     input_layers = create_model_inputs()
-
     layers = []
     for key in input_layers:
         feature_name = features.original_name(key)
@@ -113,12 +111,19 @@ def _create_binary_classifier(feature_vocab_sizes, hyperparams):
             )(input_layers[key])
             layers.append(onehot_layer)
         elif feature_name in features.NUMERICAL_FEATURE_NAMES:
-            numeric_layer = input_layers[key]  # No need for Reshape
+            numeric_layer = keras.layers.Reshape((-1,), name=f"{key}_numeric")(input_layers[key])  # Use Reshape with (-1,) shape
             layers.append(numeric_layer)
         else:
             pass
+    reshaped_layers = []
+    for layer in layers:
+        if len(layer.shape) > 2:
+            reshaped_layer = keras.layers.Reshape((-1,))(layer)
+        else:
+            reshaped_layer = layer
+        reshaped_layers.append(reshaped_layer)
 
-    joined = keras.layers.Concatenate(name="combines_inputs")(layers)
+    joined = keras.layers.Concatenate(name="combines_inputs", axis=-1)(reshaped_layers)
     feedforward_output = keras.Sequential(
         [
             keras.layers.Dense(units, activation="relu")
@@ -132,12 +137,12 @@ def _create_binary_classifier(feature_vocab_sizes, hyperparams):
     return model
 
 
+
 def create_binary_classifier(tft_output, hyperparams):
     feature_vocab_sizes = dict()
     for feature_name in features.categorical_feature_names():
         feature_vocab_sizes[feature_name] = tft_output.vocabulary_size_by_name(
             feature_name
         )
-
     return _create_binary_classifier(feature_vocab_sizes, hyperparams)
 
